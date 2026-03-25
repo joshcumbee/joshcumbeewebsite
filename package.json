@@ -1,0 +1,12 @@
+{
+  "name": "joshcumbeewebsite",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Josh Cumbee - Artist, Producer, Songwriter",
+  "scripts": {
+    "dev": "vercel dev"
+  },
+  "devDependencies": {
+    "vercel": "^34.0.0"
+  }
+}

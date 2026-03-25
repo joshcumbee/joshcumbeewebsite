@@ -1,0 +1,898 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Josh Cumbee — Artist | Producer | Songwriter</title>
+<meta name="description" content="Josh Cumbee is an artist, producer and songwriter based in Los Angeles. 5B+ streams. Credits include Sabrina Carpenter, Olivia Rodrigo, Madonna, Kygo, aespa and more.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Handjet:wght@100..900&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --black:#000000;
+  --white:#efeee4;
+  --blue:#4b8fd4;
+  --blue-glow:rgba(75,143,212,0.55);
+  --blue-dim:rgba(75,143,212,0.13);
+  --dot:rgba(239,238,228,0.28);
+  --hj:'Handjet',monospace;
+}
+html{scroll-behavior:smooth}
+body{background:var(--black);color:var(--white);font-family:var(--hj);overflow-x:hidden;cursor:crosshair}
+
+/* ── FIXED LAYERS ── */
+#canvas-bg,#ear-canvas{
+  position:fixed;inset:0;width:100vw;height:100vh;
+  z-index:0;pointer-events:none;display:block;
+}
+#ear-canvas{z-index:2}
+#face-layer{
+  position:fixed;inset:0;z-index:1;pointer-events:none;
+  display:flex;align-items:center;justify-content:center;
+  /* perspective on container makes rotateY actually visible */
+  perspective:400px;
+  perspective-origin:50% 50%;
+}
+#face-wrap{
+  width:min(47vh,432px);
+  height:min(56vh,516px);
+  transform:translateY(-14vh);
+  transition:transform 0.08s ease-out;
+  transform-style:preserve-3d;
+}
+@media(max-width:768px){
+  #face-wrap{width:76vw;height:calc(76vw * 1.04);transform:translateY(-16vh)}
+}
+#face-img{
+  width:100%;height:100%;
+  object-fit:contain;display:block;
+  filter:drop-shadow(0 0 10px rgba(75,143,212,0.45));
+  transition:filter 0.15s ease;
+}
+#webcam{display:none;position:fixed;top:-9999px}
+
+/* ── SCROLL ── */
+#scroll-content{position:relative;z-index:10}
+
+/* ── SECTIONS ── */
+section{
+  width:100%;
+  display:flex;flex-direction:column;
+  align-items:center;justify-content:flex-start;
+  padding:0 clamp(1rem,5vw,7rem);
+  position:relative;
+}
+#hero{min-height:100vh}
+
+/* ── HERO ── */
+.logo-wrap{width:min(35%,320px);margin:0 auto 0.6rem}
+.logo-wrap img{width:100%;height:auto;display:block}
+@media(max-width:768px){.logo-wrap{width:min(65%,260px)}}
+.tagline{
+  font-family:var(--hj);font-size:clamp(0.66rem,1.54vw,0.935rem);
+  letter-spacing:0.28em;color:var(--blue);text-align:center;
+  text-transform:lowercase;font-weight:300;margin-bottom:0
+}
+.face-spacer{
+  height:min(56vh,520px);width:100%;flex-shrink:0;
+}
+@media(max-width:768px){.face-spacer{height:calc(76vw * 1.25)}}
+
+/* activate button */
+#act-btn{
+  font-family:var(--hj);font-size:clamp(0.935rem,1.98vw,1.1rem);
+  letter-spacing:0.3em;color:#111;
+  background:linear-gradient(180deg,#d4d4d4 0%,#959595 48%,#707070 52%,#a0a0a0 100%);
+  border:1px solid #444;border-top-color:#ccc;border-left-color:#aaa;
+  padding:0.55em 2.2em;border-radius:3px;cursor:crosshair;
+  transition:all 0.15s ease;margin:0 auto 2.5vh;display:block;
+  text-transform:lowercase;font-weight:700;
+  box-shadow:0 3px 6px rgba(0,0,0,0.7),inset 0 1px 0 rgba(255,255,255,0.35);
+}
+#act-btn:hover{
+  background:linear-gradient(180deg,#e0e0e0 0%,#a8a8a8 48%,#888 52%,#b8b8b8 100%);
+}
+#act-btn:active{
+  box-shadow:0 1px 2px rgba(0,0,0,0.7),inset 0 2px 3px rgba(0,0,0,0.3);
+  transform:translateY(1px);
+}
+#act-btn.live{
+  background:linear-gradient(180deg,#5a9ae8 0%,#2a6ac8 48%,#1a5ab8 52%,#3a7ad8 100%);
+  border-color:#0a3a78;border-top-color:#6aaaee;color:#fff;
+  animation:pulse-ring 2.2s infinite;
+}
+@keyframes pulse-ring{
+  0%,100%{box-shadow:0 0 0 0 var(--blue-glow)}
+  50%{box-shadow:0 0 14px 4px rgba(75,143,212,0.18)}
+}
+
+/* hero cards */
+.hero-cards{
+  display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;
+  width:100%;max-width:760px;margin:0 auto;padding-bottom:5vh;
+}
+@media(max-width:768px){.hero-cards{grid-template-columns:1fr;max-width:400px}}
+.dash-card{
+  border:1px dashed var(--dot);border-radius:16px;padding:1.2rem;
+  background:rgba(0,0,0,0.62);backdrop-filter:blur(10px);
+  transition:background 0.5s ease,border-color 0.4s ease;
+}
+.dash-card.lit{background:var(--blue-dim);border-color:rgba(75,143,212,0.38)}
+.spotify-card{padding:0;overflow:hidden;}
+.spotify-card iframe{display:block;border-radius:16px;width:100%;height:352px;}
+.stats-card{
+  display:flex;flex-direction:column;align-items:center;
+  justify-content:center;min-height:352px;text-align:center;gap:0.35rem
+}
+#stream-num{
+  font-family:var(--hj);font-size:clamp(1.54rem,4.18vw,2.64rem);
+  font-weight:800;color:var(--blue);line-height:1.1;
+  letter-spacing:0.02em;transition:opacity 0.5s ease;
+  cursor:pointer;
+}
+.stream-lbl{
+  font-family:var(--hj);font-size:clamp(0.715rem,1.54vw,0.88rem);
+  letter-spacing:0.22em;color:var(--white);opacity:0.65;text-transform:lowercase;
+}
+#stream-ts{
+  font-family:var(--hj);font-size:clamp(0.55rem,1.1vw,0.682rem);
+  letter-spacing:0.12em;color:var(--white);opacity:0.6;
+  text-transform:lowercase;margin-top:0.4rem;line-height:1.5;
+}
+.stream-divider{
+  width:55%;height:1px;background:var(--dot);margin:0.55rem auto;flex-shrink:0;
+}
+.stream-roles{
+  width:100%;display:flex;flex-direction:column;gap:0.2rem;padding:0 0.75rem;
+}
+.stream-role-row{
+  display:flex;justify-content:space-between;align-items:baseline;
+  font-family:var(--hj);font-size:clamp(0.77rem,1.65vw,0.935rem);
+  letter-spacing:0.1em;text-transform:lowercase;
+}
+.role-label{color:rgba(239,238,228,0.45)}
+.role-val{color:var(--blue);font-weight:600;letter-spacing:0.05em}
+.credit-count{
+  font-family:var(--hj);font-size:clamp(0.77rem,1.65vw,0.935rem);
+  letter-spacing:0.18em;color:rgba(239,238,228,0.45);text-transform:lowercase;
+  margin-top:0.2rem;
+}
+.credit-count span{color:rgba(239,238,228,0.6)}
+#stream-link:hover #stream-num{
+  color:#6aacee;
+  text-decoration:underline;
+  text-decoration-color:rgba(75,143,212,0.4);
+  text-underline-offset:4px;
+}
+
+/* ── BIO ── */
+#bio{padding-top:4vh;padding-bottom:4vh}
+.sec-head{
+  font-family:var(--hj);font-size:clamp(1.76rem,4.95vw,3.08rem);
+  letter-spacing:0.18em;font-weight:300;text-align:center;
+  margin-bottom:1.8rem;text-transform:lowercase;
+}
+.oval-wrap{
+  position:relative;width:100%;max-width:760px;
+  margin:0 auto;padding:2.5rem 3rem 2.2rem;
+  background:rgba(0,0,0,0.75);
+  border-radius:40px;
+  backdrop-filter:blur(8px);
+  -webkit-backdrop-filter:blur(8px);
+}
+.oval-wrap::before{
+  content:'';position:absolute;inset:0;
+  border-radius:40px;
+  border:2px dotted var(--dot);pointer-events:none;
+  z-index:1;
+}
+@media(max-width:768px){
+  .oval-wrap{padding:1.8rem 1.4rem}
+  .oval-wrap::before{border-radius:20px}
+}
+.bio-copy{
+  font-family:var(--hj);font-size:clamp(0.968rem,2.09vw,1.155rem);
+  line-height:1.88;letter-spacing:0.04em;color:var(--white);
+  opacity:0.85;text-transform:lowercase;font-weight:300;
+}
+.bio-copy p+p{margin-top:1.1em}
+.bio-copy strong{color:var(--blue);font-weight:400}
+.social-row{
+  display:flex;justify-content:center;gap:1.1rem;
+  margin-top:1.8rem;flex-wrap:wrap;
+}
+.soc{
+  width:42px;height:42px;border:1px solid rgba(239,238,228,0.2);
+  border-radius:50%;color:var(--white);text-decoration:none;
+  display:flex;align-items:center;justify-content:center;
+  transition:all 0.2s ease;flex-shrink:0;
+}
+.soc:hover{border-color:var(--blue);color:var(--blue);background:var(--blue-dim)}
+.soc svg{width:17px;height:17px;fill:currentColor}
+
+/* ── CONTACT ── */
+#contact{padding-top:4vh;padding-bottom:6vh}
+.contact-grid{
+  display:grid;grid-template-columns:1fr 1fr;gap:1.8rem;
+  width:100%;max-width:760px;margin:0 auto;
+}
+@media(max-width:768px){.contact-grid{grid-template-columns:1fr}}
+.dir-card,.form-card{
+  border:1px dashed var(--dot);border-radius:16px;
+  padding:1.8rem 1.6rem;background:rgba(0,0,0,0.55);
+  backdrop-filter:blur(8px);
+}
+.dir-entry{margin-bottom:1.4rem}
+.dir-entry:last-child{margin-bottom:0}
+.dir-role{
+  font-family:var(--hj);font-size:0.825rem;letter-spacing:0.26em;
+  color:var(--blue);text-transform:lowercase;margin-bottom:0.15rem;
+}
+.dir-name{
+  font-family:var(--hj);font-size:1.1rem;letter-spacing:0.1em;
+  color:var(--white);text-transform:lowercase;font-weight:300;line-height:1.55;
+}
+.dir-email{
+  font-family:var(--hj);font-size:0.935rem;letter-spacing:0.07em;
+  color:rgba(239,238,228,0.55);text-transform:lowercase;
+  user-select:all;cursor:text;
+}
+/* form */
+.ff{margin-bottom:1.1rem}
+.ff label{
+  display:block;font-family:var(--hj);font-size:0.88rem;
+  letter-spacing:0.2em;color:rgba(239,238,228,0.62);
+  text-transform:lowercase;margin-bottom:0.35rem;
+}
+.ff .hint{
+  font-size:0.715rem;letter-spacing:0.1em;
+  color:rgba(239,238,228,0.38);margin-top:0.2rem;display:block;
+}
+.ff input,.ff textarea{
+  width:100%;background:rgba(239,238,228,0.04);
+  border:1px solid rgba(239,238,228,0.14);border-radius:999px;
+  color:var(--white);font-family:var(--hj);font-size:1.045rem;
+  letter-spacing:0.07em;padding:0.65rem 1rem;outline:none;
+  transition:border-color 0.2s ease;-webkit-appearance:none;
+}
+.ff textarea{border-radius:14px;resize:vertical;min-height:76px}
+.ff input:focus,.ff textarea:focus{border-color:var(--blue)}
+.cap-row{
+  display:flex;align-items:center;gap:0.8rem;
+  margin-bottom:1.1rem;padding:0.55rem 0.9rem;
+  border:1px dashed rgba(239,238,228,0.13);border-radius:8px;
+}
+.cap-q{font-family:var(--hj);font-size:0.935rem;letter-spacing:0.1em;flex:1;text-transform:lowercase}
+.cap-q span{color:var(--blue)}
+.cap-in{width:52px!important;text-align:center;border-radius:8px!important;padding:0.38rem 0.4rem!important;flex-shrink:0}
+.hp-f{display:none!important;visibility:hidden!important;position:absolute;left:-9999px}
+.sub-btn{
+  font-family:var(--hj);font-size:0.99rem;letter-spacing:0.22em;
+  text-transform:lowercase;color:var(--black);background:var(--blue);
+  border:none;border-radius:999px;padding:0.65rem 1.8rem;
+  cursor:crosshair;float:right;transition:background 0.2s,transform 0.1s;
+}
+.sub-btn:hover{background:#5ba3e8}
+.sub-btn:active{transform:scale(0.97)}
+.sub-btn:disabled{opacity:0.6;cursor:default}
+.f-msg{
+  display:none;font-family:var(--hj);font-size:0.682rem;
+  letter-spacing:0.13em;padding:0.45rem 0.7rem;border-radius:8px;
+  margin-top:0.6rem;clear:both;text-transform:lowercase;
+}
+.f-msg.ok{display:block;color:var(--blue);border:1px solid var(--blue);background:var(--blue-dim)}
+.f-msg.err{display:block;color:#f87171;border:1px solid #f87171;background:rgba(248,113,113,0.08)}
+
+/* ── FOOTER ── */
+footer{
+  position:relative;z-index:10;background:var(--black);
+  padding:1.4rem clamp(1rem,5vw,7rem);
+  border-top:1px solid rgba(239,238,228,0.07);
+  display:flex;justify-content:space-between;
+  align-items:center;flex-wrap:wrap;gap:0.5rem;
+  font-family:var(--hj);font-size:0.572rem;
+  letter-spacing:0.2em;color:rgba(239,238,228,0.22);
+  text-transform:lowercase;
+}
+
+/* ── REVEAL ── */
+.reveal{opacity:0;transform:translateY(18px);transition:opacity 0.65s ease,transform 0.65s ease}
+.reveal.in{opacity:1;transform:translateY(0)}
+
+/* ── BADGES ── */
+#perf{
+  position:fixed;bottom:0.7rem;right:0.9rem;z-index:100;
+  font-family:var(--hj);font-size:0.462rem;letter-spacing:0.15em;
+  color:rgba(239,238,228,0.14);pointer-events:none;
+}
+#lofi-tag{
+  display:none;position:fixed;top:0.7rem;right:0.9rem;z-index:100;
+  font-family:var(--hj);font-size:0.528rem;letter-spacing:0.2em;
+  color:var(--blue);border:1px solid var(--blue);padding:0.18rem 0.5rem;
+  background:var(--blue-dim);pointer-events:none;text-transform:lowercase;
+}
+</style>
+</head>
+<body>
+
+<!-- ── FIXED VISUAL LAYERS ── -->
+<canvas id="canvas-bg"></canvas>
+<canvas id="ear-canvas"></canvas>
+
+<div id="face-layer">
+  <div id="face-wrap">
+    <img id="face-img" src="face.png" alt="Josh Cumbee wireframe face">
+  </div>
+</div>
+
+<video id="webcam" autoplay muted playsinline></video>
+<div id="perf">-- fps</div>
+<div id="lofi-tag">◈ lo-fi</div>
+
+<!-- ── SCROLL CONTENT ── -->
+<div id="scroll-content">
+
+  <!-- HERO -->
+  <section id="hero">
+    <div class="logo-wrap">
+      <img src="JC-logo.png" alt="Josh Cumbee" width="680" height="256">
+    </div>
+    <p class="tagline">artist | producer | songwriter</p>
+    <div class="face-spacer"></div>
+    <button id="act-btn">activate</button>
+    <div class="hero-cards">
+      <div class="dash-card spotify-card" id="sp-card">
+        <!-- ── SOUNDCLOUD EMBED (active) ─────────────────────────────────
+             Full tracks, no login required. To revert to Spotify, comment
+             this block and uncomment the Spotify block below.
+        ──────────────────────────────────────────────────────────────── -->
+        <iframe
+          width="100%" height="352"
+          scrolling="no" frameborder="no" allow="autoplay"
+          style="border-radius:16px;display:block;opacity:0.65;"
+          src="https://w.soundcloud.com/player/?url=https%3A//api.soundcloud.com/playlists/soundcloud%253Aplaylists%253A2211269933&color=%234b8fd4&auto_play=false&hide_related=true&show_comments=false&show_user=true&show_reposts=false&show_teaser=false">
+        </iframe>
+
+        <!-- ── SPOTIFY EMBED (dormant — uncomment to reactivate) ─────────
+        <iframe
+          style="border-radius:16px"
+          src="https://open.spotify.com/embed/playlist/05z4DqxuZcHPWjR4koo1WE?utm_source=generator&theme=0"
+          width="100%" height="352" frameBorder="0" allowfullscreen=""
+          allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+          loading="lazy">
+        </iframe>
+        ──────────────────────────────────────────────────────────────── -->
+      </div>
+      <div class="dash-card stats-card" id="st-card">
+        <a id="stream-link" href="https://credits.muso.ai/profile/d7a5eac7-d47e-43a7-8b80-c69ec64167aa"
+           target="_blank" rel="noopener" style="text-decoration:none;color:inherit">
+          <div id="stream-num">5,258,110,859</div>
+        </a>
+        <div class="stream-lbl">streams to date</div>
+        <div id="stream-ts">—<br>via muso.ai</div>
+        <div class="stream-divider"></div>
+        <div class="stream-roles">
+          <div class="stream-role-row">
+            <span class="role-label">as producer</span>
+            <span class="role-val" id="role-producer">3.5b</span>
+          </div>
+          <div class="stream-role-row">
+            <span class="role-label">as songwriter</span>
+            <span class="role-val" id="role-songwriter">2.7b</span>
+          </div>
+        </div>
+        <div class="stream-divider"></div>
+        <div class="credit-count"><span id="credit-count">687</span> credits</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- BIO -->
+  <section id="bio">
+    <h2 class="sec-head reveal">biography</h2>
+    <div class="oval-wrap reveal">
+      <div class="bio-copy">
+        <p>josh cumbee is an artist, producer and songwriter with a studio based in los angeles, ca. cumbee is a full-stack, jack-of-all-trades creative committed to a bruce lee-derived <strong>'be like water'</strong> approach to collaboration and inspiration, and has had the great fortune of collaborating with greats such as <strong>sabrina carpenter, olivia rodrigo, madonna, kygo, steve aoki, armin van buuren, girl's generation, nct, shinee, monsta x, chris lee, lil ghost, ebi,</strong> and many many more.</p>
+        <p>with ~300 releases, <strong>+5b streams</strong> and counting, number one records in countries ranging from italy to korea, and a hearty dose of imposter syndrome, cumbee's likely either in his studio in la or on a plane to somewhere in the world with spicy food and a microphone.</p>
+        <p>josh produces in fender studio pro, and regularly plays a mix of keys, vocals, guitar, bass, and occasionally terrible trumpet.</p>
+      </div>
+      <div class="social-row">
+        <a href="https://instagram.com/joshcumbeemusic" target="_blank" rel="noopener" class="soc" aria-label="Instagram">
+          <svg viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0-2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
+        </a>
+        <a href="https://x.com/joshcumbee" target="_blank" rel="noopener" class="soc" aria-label="X">
+          <svg viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+        </a>
+        <a href="https://open.spotify.com/artist/5deoijipwIdBiA27rEj14E" target="_blank" rel="noopener" class="soc" aria-label="Spotify">
+          <svg viewBox="0 0 24 24"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
+        </a>
+        <a href="https://www.tiktok.com/@joshcumbeemusic" target="_blank" rel="noopener" class="soc" aria-label="TikTok">
+          <svg viewBox="0 0 24 24"><path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1V9.01a6.33 6.33 0 00-.79-.05 6.34 6.34 0 00-6.34 6.34 6.34 6.34 0 006.34 6.34 6.34 6.34 0 006.33-6.34V8.69a8.17 8.17 0 004.78 1.52V6.75a4.85 4.85 0 01-1.01-.06z"/></svg>
+        </a>
+        <a href="https://www.youtube.com/JoshCumbee" target="_blank" rel="noopener" class="soc" aria-label="YouTube">
+          <svg viewBox="0 0 24 24"><path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- CONTACT -->
+  <section id="contact">
+    <h2 class="sec-head reveal">contact</h2>
+    <div class="contact-grid reveal">
+      <div class="dir-card">
+        <div class="dir-entry">
+          <div class="dir-role">legal</div>
+          <div class="dir-name">cyrus saidi + charles w</div>
+          <div class="dir-email">info@cyrustalent.com</div>
+        </div>
+        <div class="dir-entry">
+          <div class="dir-role">legal</div>
+          <div class="dir-name">audrey benoualid<br>@ myman greenspan</div>
+        </div>
+        <div class="dir-entry">
+          <div class="dir-role">publishing</div>
+          <div class="dir-name">kennel / umpg</div>
+          <div class="dir-email">info@thekennel.se</div>
+        </div>
+      </div>
+      <div class="form-card">
+        <form id="cf"
+              action="https://formspree.io/f/mreozqjk"
+              method="POST" novalidate>
+          <div class="hp-f" aria-hidden="true">
+            <input type="text" name="_gotcha" tabindex="-1" autocomplete="off">
+          </div>
+          <div class="ff">
+            <label for="cf-n">your name</label>
+            <input type="text" id="cf-n" name="name" required autocomplete="name">
+          </div>
+          <div class="ff">
+            <label for="cf-e">email</label>
+            <input type="email" id="cf-e" name="email" required autocomplete="email">
+            <span class="hint">this will help me respond to your query via an email.</span>
+          </div>
+          <div class="ff">
+            <label for="cf-m">message</label>
+            <textarea id="cf-m" name="message" required></textarea>
+            <span class="hint">what would you like to discuss?</span>
+          </div>
+          <div class="cap-row">
+            <div class="cap-q">verify: <span id="ca"></span> + <span id="cb"></span> = ?</div>
+            <input class="cap-in" type="number" id="cans" autocomplete="off" aria-label="captcha">
+          </div>
+          <button type="submit" class="sub-btn">submit</button>
+          <div class="f-msg" id="fm" role="alert"></div>
+          <div style="clear:both"></div>
+        </form>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<script>
+'use strict';
+
+// ── STATE ──
+const bgC  = document.getElementById('canvas-bg');
+const earC = document.getElementById('ear-canvas');
+const bgX  = bgC.getContext('2d');
+const earX = earC.getContext('2d');
+const faceWrap = document.getElementById('face-wrap');
+const webcamEl = document.getElementById('webcam');
+
+let W=0, H=0, time=0;
+let activated=false, micOn=false, camOn=false;
+let audioCtx=null, analyser=null, dataArr=null, useReal=false;
+
+// Sim audio
+let sBass=0.05, sMid=0.04, sHigh=0.03, sEnergy=0.04;
+let sPhase=0, nextBeat=0;
+
+// Particles
+let eParts=[];
+
+// FPS
+let fps=0, fc=0, lastFT=performance.now(), fHist=[];
+let lofi = /Mobi|Android/i.test(navigator.userAgent) || window.innerWidth<768;
+
+// Pointer
+let pX=0.5, pY=0.5, spX=0.5, spY=0.5;
+
+// Head pose
+let hYaw=0, hPitch=0, hRoll=0;
+// Raw targets — MediaPipe writes here, updatePose lerps toward them
+let tYaw=0, tPitch=0, tRoll=0;
+let iLX=0.5,iLY=0.5,iRX=0.5,iRY=0.5;
+
+// ── RESIZE ──
+function resize(){
+  const dpr=Math.min(window.devicePixelRatio||1, lofi?1:2);
+  W=innerWidth; H=innerHeight;
+  [bgC,earC].forEach(c=>{
+    c.style.width=W+'px'; c.style.height=H+'px';
+    c.width=W*dpr; c.height=H*dpr;
+  });
+  bgX.scale(dpr,dpr); earX.scale(dpr,dpr);
+}
+window.addEventListener('resize',()=>{resize()});
+resize();
+
+// ── POINTER ──
+document.addEventListener('mousemove',e=>{pX=e.clientX/W;pY=e.clientY/H});
+document.addEventListener('touchmove',e=>{
+  const t=e.touches[0];pX=t.clientX/W;pY=t.clientY/H;
+},{passive:true});
+
+// ── SIM AUDIO ──
+// rawBass/rawHigh: unsmoothed, used for particle color so contrast is real
+let rawBass=0, rawHigh=0;
+
+function updateAudio(dt){
+  if(useReal&&analyser){
+    analyser.getByteFrequencyData(dataArr);
+    const L=dataArr.length,bE=Math.floor(L*.07),mE=Math.floor(L*.4);
+    let b=0,m=0,hi=0;
+    for(let i=0;i<bE;i++) b+=dataArr[i];
+    for(let i=bE;i<mE;i++) m+=dataArr[i];
+    for(let i=mE;i<L;i++) hi+=dataArr[i];
+    rawBass = b/(bE*255);
+    rawHigh = hi/((L-mE)*255);
+    sBass =lerp(sBass, rawBass,.35);
+    sMid  =lerp(sMid,  m/((mE-bE)*255),.25);
+    sHigh =lerp(sHigh, rawHigh,.2);
+    sEnergy=sBass*.5+sMid*.3+sHigh*.2;
+    return;
+  }
+  sPhase+=dt;
+  const bi=60/124; let bh=0;
+  if(sPhase>=nextBeat){nextBeat=sPhase+bi*(.92+Math.random()*.16);bh=.6+Math.random()*.4;}
+  const gr=Math.abs(Math.sin(sPhase*(124/60)*Math.PI));
+  const sh=.25+.2*Math.sin(sPhase*3.9)+.1*Math.sin(sPhase*7.1);
+  rawBass = Math.min(1,bh*.85+gr*.35);
+  rawHigh = Math.max(0,sh*.3+.05*Math.sin(sPhase*11));
+  sBass =lerp(sBass, rawBass, bh>.01?.65:.07);
+  sMid  =lerp(sMid,  Math.min(1,sh*.5+bh*.25),.12);
+  sHigh =lerp(sHigh, rawHigh,.15);
+  sEnergy=sBass*.5+sMid*.3+sHigh*.2;
+}
+
+// ── BACKGROUND ──
+function drawBg(){
+  if(lofi){
+    bgX.fillStyle='rgba(0,0,0,0.32)';
+    bgX.fillRect(0,0,W,H);
+    const ps=8,cols=Math.ceil(W/ps),rows=Math.ceil(H/ps);
+    const cx=Math.floor(spX*cols),cy=Math.floor(spY*rows);
+    for(let i=0;i<cols;i+=2){
+      for(let j=0;j<rows;j+=2){
+        const dx=(i-cx)/cols,dy=(j-cy)/rows;
+        const d=Math.sqrt(dx*dx+dy*dy);
+        const w=Math.sin(d*10-time*2.5+sBass*6)*.5+.5;
+        const v=Math.floor(w*3)/3;
+        if(v<.35) continue;
+        bgX.fillStyle=`rgba(75,143,212,${(v-.33)*.38*sEnergy})`;
+        bgX.fillRect(i*ps,j*ps,ps-1,ps-1);
+      }
+    }
+    return;
+  }
+  // Fix 10: ring size scales directly with SPL/energy — small at idle, large with loud audio
+  const splScale = 0.04 + sEnergy * 0.96; // 0.04 idle → 1.0 loud
+  bgX.fillStyle=`rgba(0,0,0,${0.12 - sEnergy*0.05})`;
+  bgX.fillRect(0,0,W,H);
+  const cx=spX*W, cy=spY*H;
+  for(let r=0;r<6;r++){
+    const t2=time*(.2+r*.08);
+    const baseRad=Math.min(W,H)*(.04+r*.06); // smaller base
+    const rad=baseRad + Math.min(W,H)*0.18*splScale; // grows with SPL
+    const warp=(sBass*55+r*6)*splScale;
+    const hue=210+r*9+sBass*22;
+    const alpha=(.008+sEnergy*.055)*(1-r*.10);
+    bgX.beginPath();
+    const pts=64;
+    for(let i=0;i<=pts;i++){
+      const ang=(i/pts)*Math.PI*2;
+      const n1=Math.sin(ang*2+t2)*warp;
+      const n2=Math.cos(ang*3+t2*1.3)*warp*.6;
+      const px=cx+Math.cos(ang)*(rad+n1);
+      const py=cy+Math.sin(ang)*(rad*.7+n2);
+      i===0?bgX.moveTo(px,py):bgX.lineTo(px,py);
+    }
+    bgX.closePath();
+    bgX.strokeStyle=`hsla(${hue},80%,62%,${alpha+.015})`;
+    bgX.lineWidth=0.5+sEnergy*2.5;
+    bgX.stroke();
+    bgX.fillStyle=`hsla(${hue},80%,62%,${alpha*.22})`;
+    bgX.fill();
+  }
+}
+
+// ── EAR PARTICLES ── Fix 1: use exact fractions from image analysis
+// L ear: (0.2135, 0.5868), R ear: (0.7865, 0.5868) of face PNG
+function spawnParticles(){
+  const r=faceWrap.getBoundingClientRect();
+  // Map image fractions to screen coords
+  const lx=r.left + r.width*0.2135;
+  const ly=r.top  + r.height*0.5868;
+  const rx=r.left + r.width*0.7865;
+  const ry=r.top  + r.height*0.5868;
+  const n=Math.floor(sEnergy*6+sBass*4);
+  for(let i=0;i<n;i++){
+    const spd=2+Math.random()*3.5+sBass*5;
+    // Fix 4: use RAW (unsmoothed) values so color contrast is vivid
+    // freqT: 0=pure deep blue (bass dominant), 1=near white (highs dominant)
+    const total = rawBass + rawHigh + 0.001;
+    const freqT = Math.pow(rawHigh / total, 0.6); // gamma to exaggerate contrast
+    eParts.push({
+      x:lx+(Math.random()-.5)*10, y:ly+(Math.random()-.5)*20,
+      vx:-spd, vy:(Math.random()-.5)*2,
+      life:1, decay:.011+Math.random()*.013,
+      sz:1.2+Math.random()*2.5+sBass*2.5,
+      freqT
+    });
+    eParts.push({
+      x:rx+(Math.random()-.5)*10, y:ry+(Math.random()-.5)*20,
+      vx:spd, vy:(Math.random()-.5)*2,
+      life:1, decay:.011+Math.random()*.013,
+      sz:1.2+Math.random()*2.5+sBass*2.5,
+      freqT
+    });
+  }
+  if(eParts.length>800) eParts.splice(0,140);
+}
+
+function drawParticles(){
+  earX.clearRect(0,0,W,H);
+  eParts=eParts.filter(p=>p.life>0);
+  eParts.forEach(p=>{
+    p.x+=p.vx; p.y+=p.vy; p.vy+=.018; p.vx*=.985; p.life-=p.decay;
+    const a=p.life*.82;
+    // Fix 4: interpolate deep blue (bass) → cyan → white (highs)
+    const ft=p.freqT||0;
+    const pr=Math.floor(lerp(30,220,ft));   // r: 30→220
+    const pg=Math.floor(lerp(80,235,ft));   // g: 80→235
+    const pb=Math.floor(lerp(220,255,ft));  // b: 220→255
+    const g=earX.createRadialGradient(p.x,p.y,0,p.x,p.y,p.sz*2.4);
+    g.addColorStop(0,`rgba(${pr},${pg},${pb},${a})`);
+    g.addColorStop(1,`rgba(${pr},${pg},${pb},0)`);
+    earX.fillStyle=g;
+    earX.beginPath();
+    earX.arc(p.x,p.y,p.sz*2.4,0,Math.PI*2);
+    earX.fill();
+  });
+}
+
+// ── EYE GLOW ──
+function updateEyes(){
+  const img=document.getElementById('face-img');
+  if(!img) return;
+  const r=8+sMid*18+sBass*14;
+  const a=0.35+sEnergy*0.55;
+  img.style.filter=`drop-shadow(0 0 ${r}px rgba(75,143,212,${a}))`;
+}
+
+// ── HEAD POSE ── 1:1 tracking with scaleX depth illusion for flat PNG
+function updatePose(){
+  const isMobile = window.innerWidth <= 768;
+  const baseY = isMobile ? -16 : -14;
+  if(!camOn){
+    const iy=Math.sin(time*.38)*4, ip=Math.sin(time*.29+1)*2.5;
+    // scaleX compresses slightly on yaw to fake 3D on flat image
+    const sx = 1 - Math.abs(iy)/180;
+    faceWrap.style.transform=`translateY(${baseY}vh) rotateY(${iy}deg) rotateX(${ip}deg) scaleX(${sx})`;
+    return;
+  }
+  // Smooth all axes — lerp factor 0.12 = responsive but not jittery
+  hYaw   = lerp(hYaw,   tYaw,   0.12);
+  hPitch = lerp(hPitch, tPitch, 0.12);
+  hRoll  = lerp(hRoll,  tRoll,  0.10);
+  const yaw   = Math.max(-45, Math.min(45,  hYaw));
+  const pitch = Math.max(-30, Math.min(30,  hPitch)); // pitch sign handled in onResults
+  const roll  = Math.max(-20, Math.min(20,  hRoll * 0.6)); // dampen roll
+  const sx = 1 - Math.abs(yaw)/170;
+  faceWrap.style.transform=`translateY(${baseY}vh) rotateY(${yaw}deg) rotateX(${pitch}deg) rotateZ(${roll}deg) scaleX(${sx.toFixed(3)})`;
+}
+
+// ── ACTIVATE ──
+document.getElementById('act-btn').addEventListener('click', async()=>{
+  if(activated) return;
+  const btn=document.getElementById('act-btn');
+  btn.textContent='connecting...';
+  try{
+    const stream=await navigator.mediaDevices.getUserMedia({audio:true,video:{facingMode:'user',width:{ideal:640},height:{ideal:480}}});
+    audioCtx=new(window.AudioContext||window.webkitAudioContext)();
+    analyser=audioCtx.createAnalyser();
+    analyser.fftSize=1024; analyser.smoothingTimeConstant=.82;
+    dataArr=new Uint8Array(analyser.frequencyBinCount);
+    audioCtx.createMediaStreamSource(stream).connect(analyser);
+    useReal=true; micOn=true;
+    webcamEl.srcObject=new MediaStream(stream.getVideoTracks());
+    camOn=true;
+    loadMP();
+    activated=true;
+    btn.textContent='active'; btn.classList.add('live');
+    document.getElementById('sp-card').classList.add('lit');
+    document.getElementById('st-card').classList.add('lit');
+  }catch(e){
+    try{
+      const aStream=await navigator.mediaDevices.getUserMedia({audio:true});
+      audioCtx=new(window.AudioContext||window.webkitAudioContext)();
+      analyser=audioCtx.createAnalyser();
+      analyser.fftSize=1024; analyser.smoothingTimeConstant=.82;
+      dataArr=new Uint8Array(analyser.frequencyBinCount);
+      audioCtx.createMediaStreamSource(aStream).connect(analyser);
+      useReal=true; micOn=true; activated=true;
+      btn.textContent='mic active'; btn.classList.add('live');
+      document.getElementById('sp-card').classList.add('lit');
+      document.getElementById('st-card').classList.add('lit');
+    }catch(e2){
+      btn.textContent='activate';
+      console.warn('Activation failed:',e2);
+    }
+  }
+});
+
+// ── MEDIAPIPE ──
+function loadMP(){
+  const s=document.createElement('script');
+  s.src='https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js';
+  s.onload=initMP; document.head.appendChild(s);
+}
+function initMP(){
+  if(typeof FaceMesh==='undefined') return;
+  const fm=new FaceMesh({locateFile:f=>`https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${f}`});
+  fm.setOptions({maxNumFaces:1,refineLandmarks:true,minDetectionConfidence:.5,minTrackingConfidence:.5});
+  fm.onResults(res=>{
+    if(!res.multiFaceLandmarks?.length) return;
+    const lm=res.multiFaceLandmarks[0];
+
+    // YAW: use cheek distance ratio — more reliable than nose X position
+    // lm[234]=left cheek, lm[454]=right cheek, lm[1]=nose tip
+    const leftDist  = lm[1].x - lm[234].x;  // nose to left cheek
+    const rightDist = lm[454].x - lm[1].x;  // nose to right cheek
+    const total = leftDist + rightDist;
+    const yawRatio = total > 0.01 ? (leftDist - rightDist) / total : 0;
+    tYaw = -yawRatio * 39;  // negated=fix reversal, *39=35% less sensitive
+
+    // PITCH: forehead (10) to chin (152) midpoint vs nose tip (1)
+    const faceH = lm[152].y - lm[10].y;
+    const noseFrac = faceH > 0.01 ? (lm[1].y - lm[10].y) / faceH : 0.5;
+    tPitch = -(noseFrac - 0.48) * 120; // negative = Y-axis fix baked in
+
+    // ROLL: eye corner angle
+    const lex=lm[33].x, ley=lm[33].y;
+    const rex=lm[263].x, rey=lm[263].y;
+    const rawRoll = -Math.atan2(rey-ley, rex-lex) * (180/Math.PI); // negated=fix reversal
+    const deadZone = 2.5; // degrees of dead zone at center
+    tRoll = Math.abs(rawRoll) > deadZone ? (rawRoll - Math.sign(rawRoll)*deadZone) * 0.5 : 0;
+
+    if(lm[473]){iLX=lm[473].x;iLY=lm[473].y;}
+    if(lm[468]){iRX=lm[468].x;iRY=lm[468].y;}
+  });
+  const s2=document.createElement('script');
+  s2.src='https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js';
+  s2.onload=()=>{
+    if(typeof Camera==='undefined') return;
+    new Camera(webcamEl,{onFrame:async()=>await fm.send({image:webcamEl}),width:320,height:240}).start();
+  };
+  document.head.appendChild(s2);
+}
+
+// ── STREAM COUNT ──
+async function fetchStreams(){
+  try{
+    const r=await fetch('/api/streams');
+    if(!r.ok) return;
+    const d=await r.json();
+    if(!d.streams) return;
+
+    // Raw digit counter with commas — shows daily movement
+    const el=document.getElementById('stream-num');
+    const rawLabel=d.streams.toLocaleString('en-US');
+    el.style.opacity='0';
+    setTimeout(()=>{
+      el.textContent=rawLabel;
+      el.style.transition='opacity .6s ease';
+      el.style.opacity='1';
+    },300);
+
+    // Timestamp + attribution
+    if(d.updatedAt){
+      const dt=new Date(d.updatedAt);
+      const ts=`updated ${dt.toLocaleDateString('en-US',{month:'numeric',day:'numeric',year:'2-digit'})} @ ${dt.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',timeZoneName:'short'}).toLowerCase()}`;
+      document.getElementById('stream-ts').innerHTML=`${ts}<br>via muso.ai`;
+    }
+
+    // Role breakdown — format as xB or xM
+    const fmt=(n)=>{
+      if(!n) return '—';
+      if(n>=1e9) return (n/1e9).toFixed(1).replace(/\.0$/,'')+'b';
+      return (n/1e6).toFixed(0)+'m';
+    };
+    const rp=document.getElementById('role-producer');
+    const rs=document.getElementById('role-songwriter');
+    const cc=document.getElementById('credit-count');
+    if(rp && d.producerStreams)   rp.textContent=fmt(d.producerStreams);
+    if(rs && d.songwriterStreams) rs.textContent=fmt(d.songwriterStreams);
+    if(cc && d.creditCount)      cc.textContent=d.creditCount.toLocaleString('en-US');
+
+  }catch(e){}
+}
+
+// ── CONTACT FORM ──
+let cA=0,cB=0;
+function genCap(){
+  cA=Math.floor(Math.random()*12)+1;
+  cB=Math.floor(Math.random()*12)+1;
+  document.getElementById('ca').textContent=cA;
+  document.getElementById('cb').textContent=cB;
+  document.getElementById('cans').value='';
+}
+genCap();
+
+document.getElementById('cf').addEventListener('submit',async e=>{
+  e.preventDefault();
+  const fm=document.getElementById('fm');
+  const form=e.target;
+  if(form._gotcha.value) return;
+  if(parseInt(document.getElementById('cans').value)!==cA+cB){
+    fm.textContent='incorrect answer — try again.';fm.className='f-msg err';genCap();return;
+  }
+  if(!form.name.value.trim()||!form.email.value.trim()||!form.message.value.trim()){
+    fm.textContent='please fill in all fields.';fm.className='f-msg err';return;
+  }
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.value)){
+    fm.textContent='please enter a valid email.';fm.className='f-msg err';return;
+  }
+  const btn=form.querySelector('.sub-btn');
+  btn.textContent='sending...';btn.disabled=true;
+  try{
+    const res=await fetch(form.action,{method:'POST',headers:{Accept:'application/json'},body:new FormData(form)});
+    if(res.ok){fm.textContent="message sent ✓ — i'll be in touch soon.";fm.className='f-msg ok';form.reset();genCap();}
+    else throw new Error();
+  }catch(err){fm.textContent='something went wrong — please try again.';fm.className='f-msg err';}
+  finally{btn.textContent='submit';btn.disabled=false;}
+});
+
+// ── SCROLL REVEAL ──
+const ro=new IntersectionObserver(entries=>{
+  entries.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');ro.unobserve(e.target);}});
+},{threshold:.12});
+document.querySelectorAll('.reveal').forEach(el=>ro.observe(el));
+
+// ── LO-FI CHECK ──
+function checkLofi(){
+  if(fHist.length<8) return;
+  const avg=fHist.slice(-6).reduce((a,b)=>a+b,0)/6;
+  if(avg<40&&!lofi){lofi=true;document.getElementById('lofi-tag').style.display='block';resize();}
+}
+if(lofi) document.getElementById('lofi-tag').style.display='block';
+
+// ── MAIN LOOP ──
+let lastT=performance.now();
+function loop(now){
+  const dt=Math.min((now-lastT)/1000,.05); lastT=now; time+=dt;
+  fc++;
+  if(now-lastFT>=500){
+    fps=Math.round(fc/((now-lastFT)/1000));
+    fHist.push(fps); if(fHist.length>16) fHist.shift();
+    document.getElementById('perf').textContent=fps+' fps';
+    checkLofi(); fc=0; lastFT=now;
+  }
+  spX=lerp(spX,pX,.05); spY=lerp(spY,pY,.05);
+  updateAudio(dt); drawBg(); updateEyes(); updatePose();
+  spawnParticles(); drawParticles();
+  requestAnimationFrame(loop);
+}
+
+function lerp(a,b,t){return a+(b-a)*t;}
+
+fetchStreams();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
