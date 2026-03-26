@@ -45,12 +45,28 @@ body{background:var(--black);color:var(--white);font-family:var(--hj);overflow-x
 @media(max-width:768px){
   #face-wrap{width:68vw;height:calc(68vw * 1.04);transform:translateY(-12vh)}
 }
+/* face-img stays in normal flow to give face-wrap its dimensions */
 #face-img{
   width:100%;height:100%;
   object-fit:contain;display:block;
+  position:relative;
   filter:drop-shadow(0 0 10px rgba(75,143,212,0.45));
-  transition:filter 0.15s ease;
+  opacity:1;
+  transition:opacity 0.10s ease-out, filter 0.15s ease;
 }
+/* closed sits absolutely on top — same size, same position */
+#face-img-closed{
+  width:100%;height:100%;
+  object-fit:contain;display:block;
+  position:absolute;top:0;left:0;
+  filter:drop-shadow(0 0 10px rgba(75,143,212,0.45));
+  opacity:0;
+  transition:opacity 0.06s ease-in, filter 0.15s ease;
+}
+/* Blinking: crossfade — open out, closed in simultaneously */
+#face-wrap.blinking #face-img        { opacity:0; transition:opacity 0.06s ease-in,  filter 0.15s ease; }
+#face-wrap.blinking #face-img-closed { opacity:1; transition:opacity 0.06s ease-in,  filter 0.15s ease; }
+#face-wrap{ position:relative; }
 #webcam{display:none;position:fixed;top:-9999px}
 
 /* ── SCROLL ── */
@@ -483,6 +499,7 @@ footer{
 <div id="face-layer">
   <div id="face-wrap">
     <img id="face-img" src="face.png" alt="Josh Cumbee wireframe face">
+    <img id="face-img-closed" src="face-closed.png" alt="" aria-hidden="true">
   </div>
 </div>
 
@@ -734,10 +751,13 @@ let lofi = /Mobi|Android/i.test(navigator.userAgent) || window.innerWidth<768;
 // Pointer
 let pX=0.5, pY=0.5, spX=0.5, spY=0.5;
 
-// Head pose
-let hYaw=0, hPitch=0, hRoll=0;
-// Raw targets — MediaPipe writes here, updatePose lerps toward them
-let tYaw=0, tPitch=0, tRoll=0;
+// Head pose — velocity-based interpolation for smooth 60fps output from 10fps MP input
+const pose = {
+  yaw:   {val:0, vel:0, target:0},
+  pitch: {val:0, vel:0, target:0},
+  roll:  {val:0, vel:0, target:0},
+};
+let lastMPTime = 0; // timestamp of last MediaPipe sample
 let iLX=0.5,iLY=0.5,iRX=0.5,iRY=0.5;
 
 // ── RESIZE ──
@@ -752,6 +772,27 @@ function resize(){
 }
 window.addEventListener('resize',()=>{resize()});
 resize();
+
+// ── PARTICLE GLOW SPRITES ──
+// Pre-render two 64x64 glow bitmaps (deep blue + near-white) once at startup.
+// drawImage of a pre-rendered bitmap is ~10x cheaper than createRadialGradient per particle.
+const SPRITE_SIZE = 64;
+const SPRITE_R    = SPRITE_SIZE / 2;
+
+function makeGlowSprite(r,g,b){
+  const oc  = new OffscreenCanvas(SPRITE_SIZE, SPRITE_SIZE);
+  const ctx = oc.getContext('2d');
+  const grad = ctx.createRadialGradient(SPRITE_R,SPRITE_R,0, SPRITE_R,SPRITE_R,SPRITE_R);
+  grad.addColorStop(0, `rgba(${r},${g},${b},1)`);
+  grad.addColorStop(1, `rgba(${r},${g},${b},0)`);
+  ctx.fillStyle = grad;
+  ctx.fillRect(0,0,SPRITE_SIZE,SPRITE_SIZE);
+  return oc;
+}
+
+// Blue sprite (bass) and white sprite (highs) — interpolate between them via opacity
+const glowBass  = makeGlowSprite(30,  80,  220);  // deep blue
+const glowHigh  = makeGlowSprite(220, 235, 255);  // near-white
 
 // ── POINTER ──
 document.addEventListener('mousemove',e=>{pX=e.clientX/W;pY=e.clientY/H});
@@ -845,33 +886,50 @@ function drawBg(){
 
 // ── EAR PARTICLES ── Fix 1: use exact fractions from image analysis
 // L ear: (0.2135, 0.5868), R ear: (0.7865, 0.5868) of face PNG
+// Ear centers measured from face.png: L=(0.155, 0.570), R=(0.843, 0.570)
+// When face rotates via CSS rotateY, each point's screen X shifts by:
+// deltaX = (originalX - 0.5) * (1 - cos(yaw)) * faceWidth  [perspective compression]
+//        + sin(yaw) * depth_offset * faceWidth               [z-position contribution]
+// Simplified: treat ears as on the face surface, offset from center by ±0.345 * width
+// CSS rotateY with perspective:400px compresses the image — left ear and right ear
+// shift symmetrically toward/away from center.
 function spawnParticles(){
-  const r=faceWrap.getBoundingClientRect();
-  // Map image fractions to screen coords
-  const lx=r.left + r.width*0.2135;
-  const ly=r.top  + r.height*0.5868;
-  const rx=r.left + r.width*0.7865;
-  const ry=r.top  + r.height*0.5868;
+  const r   = faceWrap.getBoundingClientRect();
+  const cx  = r.left + r.width * 0.5;  // face center — stable anchor
+  const fW  = r.width;
+  const yawRad = (pose.yaw.val || 0) * Math.PI / 180;
+  const cosY   = Math.cos(yawRad);
+
+  // Ear offsets from face center: L=-0.345, R=+0.343
+  // Under CSS rotateY: projected X = center + offset * faceWidth * cos(yaw)
+  let lx = cx + (-0.345) * fW * cosY;
+  let rx = cx + ( 0.343) * fW * cosY;
+  const ly = r.top + r.height * 0.570;
+  const ry = ly;
+
+  // When ear rotates behind face, clamp to face silhouette edge
+  // so particles emit from side of face rather than drifting to forehead
+  const edgeL = cx - fW * 0.42;  // left silhouette edge
+  const edgeR = cx + fW * 0.42;  // right silhouette edge
+  lx = Math.max(edgeL, lx);
+  rx = Math.min(edgeR, rx);
+
   const n=Math.floor(sEnergy*6+sBass*4);
   for(let i=0;i<n;i++){
     const spd=2+Math.random()*3.5+sBass*5;
-    // Fix 4: use RAW (unsmoothed) values so color contrast is vivid
-    // freqT: 0=pure deep blue (bass dominant), 1=near white (highs dominant)
     const total = rawBass + rawHigh + 0.001;
-    const freqT = Math.pow(rawHigh / total, 0.6); // gamma to exaggerate contrast
+    const freqT = Math.pow(rawHigh / total, 0.6);
     eParts.push({
       x:lx+(Math.random()-.5)*10, y:ly+(Math.random()-.5)*20,
       vx:-spd, vy:(Math.random()-.5)*2,
       life:1, decay:.011+Math.random()*.013,
-      sz:1.2+Math.random()*2.5+sBass*2.5,
-      freqT
+      sz:1.2+Math.random()*2.5+sBass*2.5, freqT
     });
     eParts.push({
       x:rx+(Math.random()-.5)*10, y:ry+(Math.random()-.5)*20,
       vx:spd, vy:(Math.random()-.5)*2,
       life:1, decay:.011+Math.random()*.013,
-      sz:1.2+Math.random()*2.5+sBass*2.5,
-      freqT
+      sz:1.2+Math.random()*2.5+sBass*2.5, freqT
     });
   }
   if(eParts.length>800) eParts.splice(0,140);
@@ -880,22 +938,27 @@ function spawnParticles(){
 function drawParticles(){
   earX.clearRect(0,0,W,H);
   eParts=eParts.filter(p=>p.life>0);
+  // Save/restore once for all particles — cheaper than per-particle state changes
+  earX.save();
+  earX.globalCompositeOperation = 'lighter'; // additive blend = glow effect
   eParts.forEach(p=>{
     p.x+=p.vx; p.y+=p.vy; p.vy+=.018; p.vx*=.985; p.life-=p.decay;
-    const a=p.life*.82;
-    // Fix 4: interpolate deep blue (bass) → cyan → white (highs)
-    const ft=p.freqT||0;
-    const pr=Math.floor(lerp(30,220,ft));   // r: 30→220
-    const pg=Math.floor(lerp(80,235,ft));   // g: 80→235
-    const pb=Math.floor(lerp(220,255,ft));  // b: 220→255
-    const g=earX.createRadialGradient(p.x,p.y,0,p.x,p.y,p.sz*2.4);
-    g.addColorStop(0,`rgba(${pr},${pg},${pb},${a})`);
-    g.addColorStop(1,`rgba(${pr},${pg},${pb},0)`);
-    earX.fillStyle=g;
-    earX.beginPath();
-    earX.arc(p.x,p.y,p.sz*2.4,0,Math.PI*2);
-    earX.fill();
+    const ft  = p.freqT || 0;
+    const sz  = p.sz * 2.4;
+    const half = sz; // drawImage offset = half of SPRITE_SIZE * scale
+    const drawSz = sz * 2;
+
+    // Draw bass sprite (fades out as freqT → 1)
+    earX.globalAlpha = p.life * 0.82 * (1 - ft * 0.7);
+    earX.drawImage(glowBass, p.x - half, p.y - half, drawSz, drawSz);
+
+    // Draw high sprite (fades in as freqT → 1)
+    if(ft > 0.1){
+      earX.globalAlpha = p.life * 0.82 * ft * 0.9;
+      earX.drawImage(glowHigh, p.x - half, p.y - half, drawSz, drawSz);
+    }
   });
+  earX.restore();
 }
 
 // ── EYE GLOW ──
@@ -904,28 +967,40 @@ function updateEyes(){
   if(!img) return;
   const r=8+sMid*18+sBass*14;
   const a=0.35+sEnergy*0.55;
-  img.style.filter=`drop-shadow(0 0 ${r}px rgba(75,143,212,${a}))`;
+  const f=`drop-shadow(0 0 ${r}px rgba(75,143,212,${a}))`;
+  img.style.filter=f;
+  const imgC=document.getElementById('face-img-closed');
+  if(imgC) imgC.style.filter=f;
 }
 
-// ── HEAD POSE ── 1:1 tracking with scaleX depth illusion for flat PNG
-function updatePose(){
+// ── HEAD POSE ── velocity interpolation: smooth 60fps output from 10fps MP samples
+function updatePose(dtMs){
   const isMobile = window.innerWidth <= 768;
   const baseY = isMobile ? -16 : -14;
   if(!camOn){
     const iy=Math.sin(time*.38)*4, ip=Math.sin(time*.29+1)*2.5;
-    // scaleX compresses slightly on yaw to fake 3D on flat image
     const sx = 1 - Math.abs(iy)/180;
     faceWrap.style.transform=`translateY(${baseY}vh) rotateY(${iy}deg) rotateX(${ip}deg) scaleX(${sx})`;
     return;
   }
-  // Smooth all axes — lerp factor 0.12 = responsive but not jittery
-  hYaw   = lerp(hYaw,   tYaw,   0.12);
-  hPitch = lerp(hPitch, tPitch, 0.12);
-  hRoll  = lerp(hRoll,  tRoll,  0.10);
-  const yaw   = Math.max(-45, Math.min(45,  hYaw));
-  const pitch = Math.max(-30, Math.min(30,  hPitch)); // pitch sign handled in onResults
-  const roll  = Math.max(-20, Math.min(20,  hRoll * 0.6)); // dampen roll
-  const sx = 1 - Math.abs(yaw)/170;
+
+  // Step 1: extrapolate forward using last known velocity (dead reckoning)
+  pose.yaw.val   += pose.yaw.vel   * dtMs;
+  pose.pitch.val += pose.pitch.vel * dtMs;
+  pose.roll.val  += pose.roll.vel  * dtMs;
+
+  // Step 2: soft correction pull toward target — prevents velocity drift
+  // Factor 0.08 at 60fps = very gentle, invisible correction
+  const CORRECTION = 0.08;
+  pose.yaw.val   = lerp(pose.yaw.val,   pose.yaw.target,   CORRECTION);
+  pose.pitch.val = lerp(pose.pitch.val, pose.pitch.target, CORRECTION);
+  pose.roll.val  = lerp(pose.roll.val,  pose.roll.target,  CORRECTION);
+
+  // Step 3: clamp and apply
+  const yaw   = Math.max(-45, Math.min(45,  pose.yaw.val));
+  const pitch = Math.max(-30, Math.min(30,  pose.pitch.val));
+  const roll  = Math.max(-20, Math.min(20,  pose.roll.val * 0.6));
+  const sx    = 1 - Math.abs(yaw)/170;
   faceWrap.style.transform=`translateY(${baseY}vh) rotateY(${yaw}deg) rotateX(${pitch}deg) rotateZ(${roll}deg) scaleX(${sx.toFixed(3)})`;
 }
 
@@ -935,7 +1010,11 @@ document.getElementById('act-btn').addEventListener('click', async()=>{
   const btn=document.getElementById('act-btn');
   btn.textContent='connecting...';
   try{
-    const stream=await navigator.mediaDevices.getUserMedia({audio:true,video:{facingMode:'user',width:{ideal:640},height:{ideal:480}}});
+    const stream=await navigator.mediaDevices.getUserMedia({audio:{
+      echoCancellation: false,
+      noiseSuppression: false,
+      autoGainControl: false
+    },video:{facingMode:'user',width:{ideal:640},height:{ideal:480}}});
     audioCtx=new(window.AudioContext||window.webkitAudioContext)();
     analyser=audioCtx.createAnalyser();
     analyser.fftSize=1024; analyser.smoothingTimeConstant=.82;
@@ -943,6 +1022,7 @@ document.getElementById('act-btn').addEventListener('click', async()=>{
     audioCtx.createMediaStreamSource(stream).connect(analyser);
     useReal=true; micOn=true;
     webcamEl.srcObject=new MediaStream(stream.getVideoTracks());
+    webcamEl.play().catch(()=>{}); // must be playing for readyState >= 2
     camOn=true;
     loadMP();
     activated=true;
@@ -951,7 +1031,11 @@ document.getElementById('act-btn').addEventListener('click', async()=>{
     document.getElementById('st-card').classList.add('lit');
   }catch(e){
     try{
-      const aStream=await navigator.mediaDevices.getUserMedia({audio:true});
+      const aStream=await navigator.mediaDevices.getUserMedia({audio:{
+      echoCancellation: false,
+      noiseSuppression: false,
+      autoGainControl: false
+    }});
       audioCtx=new(window.AudioContext||window.webkitAudioContext)();
       analyser=audioCtx.createAnalyser();
       analyser.fftSize=1024; analyser.smoothingTimeConstant=.82;
@@ -981,37 +1065,60 @@ function initMP(){
   fm.onResults(res=>{
     if(!res.multiFaceLandmarks?.length) return;
     const lm=res.multiFaceLandmarks[0];
+    const now = performance.now();
+    const dt  = now - lastMPTime;   // time since last sample (ms)
+    lastMPTime = now;
 
-    // YAW: use cheek distance ratio — more reliable than nose X position
-    // lm[234]=left cheek, lm[454]=right cheek, lm[1]=nose tip
-    const leftDist  = lm[1].x - lm[234].x;  // nose to left cheek
-    const rightDist = lm[454].x - lm[1].x;  // nose to right cheek
+    // YAW: cheek distance ratio
+    const leftDist  = lm[1].x - lm[234].x;
+    const rightDist = lm[454].x - lm[1].x;
     const total = leftDist + rightDist;
     const yawRatio = total > 0.01 ? (leftDist - rightDist) / total : 0;
-    tYaw = -yawRatio * 39;  // negated=fix reversal, *39=35% less sensitive
+    const newYaw = -yawRatio * 39;
 
-    // PITCH: forehead (10) to chin (152) midpoint vs nose tip (1)
+    // PITCH: forehead-to-chin ratio
     const faceH = lm[152].y - lm[10].y;
     const noseFrac = faceH > 0.01 ? (lm[1].y - lm[10].y) / faceH : 0.5;
-    tPitch = -(noseFrac - 0.48) * 120; // negative = Y-axis fix baked in
+    const newPitch = -(noseFrac - 0.48) * 120;
 
-    // ROLL: eye corner angle
+    // ROLL: eye corner angle with dead zone
     const lex=lm[33].x, ley=lm[33].y;
     const rex=lm[263].x, rey=lm[263].y;
-    const rawRoll = -Math.atan2(rey-ley, rex-lex) * (180/Math.PI); // negated=fix reversal
-    const deadZone = 2.5; // degrees of dead zone at center
-    tRoll = Math.abs(rawRoll) > deadZone ? (rawRoll - Math.sign(rawRoll)*deadZone) * 0.5 : 0;
+    const rawRoll = -Math.atan2(rey-ley, rex-lex) * (180/Math.PI);
+    const deadZone = 2.5;
+    const newRoll = Math.abs(rawRoll) > deadZone
+      ? (rawRoll - Math.sign(rawRoll)*deadZone) * 0.5 : 0;
+
+    // Compute velocity — how fast each axis is moving (degrees per ms)
+    // Guard against first frame (dt would be huge or zero)
+    if(dt > 0 && dt < 500) {
+      pose.yaw.vel   = (newYaw   - pose.yaw.target)   / dt;
+      pose.pitch.vel = (newPitch - pose.pitch.target)  / dt;
+      pose.roll.vel  = (newRoll  - pose.roll.target)   / dt;
+    }
+    pose.yaw.target   = newYaw;
+    pose.pitch.target = newPitch;
+    pose.roll.target  = newRoll;
 
     if(lm[473]){iLX=lm[473].x;iLY=lm[473].y;}
     if(lm[468]){iRX=lm[468].x;iRY=lm[468].y;}
   });
-  const s2=document.createElement('script');
-  s2.src='https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js';
-  s2.onload=()=>{
-    if(typeof Camera==='undefined') return;
-    new Camera(webcamEl,{onFrame:async()=>await fm.send({image:webcamEl}),width:320,height:240}).start();
-  };
-  document.head.appendChild(s2);
+  // Feed frames manually — avoids Camera utility's second getUserMedia call
+  // Must await fm.send() before scheduling next frame, same as Camera utility did.
+  let mpRunning = false;
+  const MP_INTERVAL = 100; // 10fps — 100ms between inference frames
+
+  async function mpTick(){
+    if(!camOn) return;
+    if(webcamEl.readyState >= 2){
+      try{ await fm.send({image: webcamEl}); }
+      catch(e){ /* frame dropped gracefully */ }
+    }
+    setTimeout(mpTick, MP_INTERVAL);
+  }
+
+  // Start after a short delay to let webcam settle
+  setTimeout(mpTick, 500);
 }
 
 // ── STREAM COUNT ──
@@ -1322,9 +1429,22 @@ function checkLofi(){
 if(lofi) document.getElementById('lofi-tag').style.display='block';
 
 // ── MAIN LOOP ──
-let lastT=performance.now();
+const TARGET_FPS   = 60;
+const FRAME_MIN_MS = 1000 / TARGET_FPS; // 16.67ms
+let lastFrameTime  = 0;
+let lastT = performance.now();
+
 function loop(now){
-  const dt=Math.min((now-lastT)/1000,.05); lastT=now; time+=dt;
+  requestAnimationFrame(loop);
+  // Hard cap at 60fps — early return on 120Hz/ProMotion displays
+  if(now - lastFrameTime < FRAME_MIN_MS) return;
+  lastFrameTime = now;
+
+  const dtMs = Math.min(now - lastT, 50); // ms, capped at 50 to prevent spiral on tab resume
+  const dt   = dtMs / 1000;               // seconds for existing audio/sim code
+  lastT = now;
+  time += dt;
+
   fc++;
   if(now-lastFT>=500){
     fps=Math.round(fc/((now-lastFT)/1000));
@@ -1333,15 +1453,46 @@ function loop(now){
     checkLofi(); fc=0; lastFT=now;
   }
   spX=lerp(spX,pX,.05); spY=lerp(spY,pY,.05);
-  updateAudio(dt); drawBg(); updateEyes(); updatePose();
+  updateAudio(dt); drawBg(); updateEyes(); updatePose(dtMs);
   spawnParticles(); drawParticles();
-  requestAnimationFrame(loop);
 }
 
 function lerp(a,b,t){return a+(b-a)*t;}
 
+
+// ── BLINK ──────────────────────────────────────────────
+// Crossfade between face-open and face-closed PNGs
+(function initBlink(){
+  if(!document.getElementById('face-img-closed')) return;
+
+  const wrap = document.getElementById('face-wrap');
+
+  function doBlink(){
+    if(!wrap) return;
+    wrap.classList.add('blinking');           // eyes close (60ms transition)
+    setTimeout(()=>{
+      wrap.classList.remove('blinking');      // eyes open (100ms transition)
+    }, 150);                                  // hold closed for 150ms
+  }
+
+  function scheduleBlink(){
+    const delay = Math.random() * 4000 + 3000; // 3–7 seconds
+    setTimeout(()=>{
+      doBlink();
+      // 15% chance of double-blink
+      if(Math.random() < 0.15){
+        setTimeout(doBlink, 280);
+      }
+      scheduleBlink();
+    }, delay);
+  }
+
+  // Start after a short initial delay so page feels settled
+  setTimeout(scheduleBlink, 2000);
+})();
+
 fetchStreams();
-requestAnimationFrame(loop);
+requestAnimationFrame(loop); // starts the loop; rAF is now at top of loop fn
 </script>
 </body>
 </html>
