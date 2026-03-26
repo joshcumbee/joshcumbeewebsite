@@ -67,6 +67,16 @@ body{background:var(--black);color:var(--white);font-family:var(--hj);overflow-x
 #face-wrap.blinking #face-img        { opacity:0; transition:opacity 0.06s ease-in,  filter 0.15s ease; }
 #face-wrap.blinking #face-img-closed { opacity:1; transition:opacity 0.06s ease-in,  filter 0.15s ease; }
 #face-wrap{ position:relative; }
+/* Ear position markers — invisible, used only for getBoundingClientRect tracking */
+.ear-marker{
+  position:absolute;
+  width:2px;height:2px;
+  pointer-events:none;
+  opacity:0;
+  /* Positioned as % of face-wrap — matches ear centers in face.png */
+}
+#ear-l{ left:13.0%; top:57.4%; }
+#ear-r{ left:86.8%; top:57.1%; }
 #webcam{display:none;position:fixed;top:-9999px}
 
 /* ── SCROLL ── */
@@ -500,6 +510,9 @@ footer{
   <div id="face-wrap">
     <img id="face-img" src="face.png" alt="Josh Cumbee wireframe face">
     <img id="face-img-closed" src="face-closed.png" alt="" aria-hidden="true">
+    <!-- Ear position anchors — inherit face transform, give real screen coords via getBoundingClientRect -->
+    <div id="ear-l" class="ear-marker"></div>
+    <div id="ear-r" class="ear-marker"></div>
   </div>
 </div>
 
@@ -893,26 +906,20 @@ function drawBg(){
 // Simplified: treat ears as on the face surface, offset from center by ±0.345 * width
 // CSS rotateY with perspective:400px compresses the image — left ear and right ear
 // shift symmetrically toward/away from center.
+// Ear markers are invisible divs inside #face-wrap at the ear positions.
+// They inherit the exact same CSS transform as the face, so their
+// getBoundingClientRect() gives the true screen position automatically.
+const earMarkerL = document.getElementById('ear-l');
+const earMarkerR = document.getElementById('ear-r');
+
 function spawnParticles(){
-  const r   = faceWrap.getBoundingClientRect();
-  const cx  = r.left + r.width * 0.5;  // face center — stable anchor
-  const fW  = r.width;
-  const yawRad = (pose.yaw.val || 0) * Math.PI / 180;
-  const cosY   = Math.cos(yawRad);
-
-  // Ear offsets from face center: L=-0.345, R=+0.343
-  // Under CSS rotateY: projected X = center + offset * faceWidth * cos(yaw)
-  let lx = cx + (-0.345) * fW * cosY;
-  let rx = cx + ( 0.343) * fW * cosY;
-  const ly = r.top + r.height * 0.570;
-  const ry = ly;
-
-  // When ear rotates behind face, clamp to face silhouette edge
-  // so particles emit from side of face rather than drifting to forehead
-  const edgeL = cx - fW * 0.42;  // left silhouette edge
-  const edgeR = cx + fW * 0.42;  // right silhouette edge
-  lx = Math.max(edgeL, lx);
-  rx = Math.min(edgeR, rx);
+  // Use marker bounding rects — browser does all the 3D transform math for us
+  const ml = earMarkerL.getBoundingClientRect();
+  const mr = earMarkerR.getBoundingClientRect();
+  const lx = ml.left + ml.width  * 0.5;
+  const ly = ml.top  + ml.height * 0.5;
+  const rx = mr.left + mr.width  * 0.5;
+  const ry = mr.top  + mr.height * 0.5;
 
   const n=Math.floor(sEnergy*6+sBass*4);
   for(let i=0;i<n;i++){
