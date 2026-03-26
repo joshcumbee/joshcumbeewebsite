@@ -43,7 +43,7 @@ body{background:var(--black);color:var(--white);font-family:var(--hj);overflow-x
   transform-style:preserve-3d;
 }
 @media(max-width:768px){
-  #face-wrap{width:68vw;height:calc(68vw * 1.04);transform:translateY(-4vh)}
+  #face-wrap{width:68vw;height:calc(68vw * 1.04);transform:translateY(-8vh)}
 }
 /* face-img stays in normal flow to give face-wrap its dimensions */
 #face-img{
@@ -983,7 +983,7 @@ function updateEyes(){
 // ── HEAD POSE ── velocity interpolation: smooth 60fps output from 10fps MP samples
 function updatePose(dtMs){
   const isMobile = window.innerWidth <= 768;
-  const baseY = isMobile ? -4 : -14;
+  const baseY = isMobile ? -8 : -14;
   if(!camOn){
     const iy=Math.sin(time*.38)*4, ip=Math.sin(time*.29+1)*2.5;
     const sx = 1 - Math.abs(iy)/180;
