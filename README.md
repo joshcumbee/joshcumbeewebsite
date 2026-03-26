@@ -1,4 +1,4 @@
-# HEMISFEARS
+# JOSH CUMBEE
 
 Artist website with audio-reactive visualizer and live MUSO stream count.
 
