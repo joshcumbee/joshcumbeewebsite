@@ -69,3 +69,24 @@ Full URL: https://soundcloud.com/joshcumbee/sets/josh-cumbee-producer-writer
 ## MUSO Profile
 UUID: `d7a5eac7-d47e-43a7-8b80-c69ec64167aa`
 Public profile: https://credits.muso.ai/profile/d7a5eac7-d47e-43a7-8b80-c69ec64167aa
+
+## Updating the Playlist
+
+The iPod player loads track metadata from `public/playlist.json` for instant
+full titles on all tracks. When you add songs to your SoundCloud playlist,
+regenerate it:
+
+```bash
+node scripts/fetch-playlist.js
+```
+
+This scrapes `__sc_hydration__` JSON from the playlist page and writes
+`public/playlist.json`. Then:
+
+```bash
+git add public/playlist.json
+git commit -m "update playlist"
+git push
+```
+
+Vercel deploys automatically. No API key required.
